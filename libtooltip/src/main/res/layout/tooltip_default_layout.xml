@@ -3,16 +3,25 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:background="@android:color/holo_blue_light">
+    android:layout_height="wrap_content">
+
+    <ImageView
+        android:id="@+id/iv_tooltip_arrow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/polygon"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/tv_tooltip_content"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:background="@drawable/rectangle"
+        android:padding="8dp"
         android:textColor="@android:color/white"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="This is tooltip content" />
+        app:layout_constraintTop_toBottomOf="@id/iv_tooltip_arrow"
+        tools:text="This is tooltip contentThis is tooltip contentThis is tooltip contentThis is tooltip content" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

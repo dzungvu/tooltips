@@ -52,10 +52,37 @@
             android:background="@android:color/holo_blue_bright" />
 
         <Button
+            android:layout_marginTop="50dp"
             android:id="@+id/btn_click_here"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/click_here" />
+            android:text="@string/click_here"
+            android:layout_gravity="center"/>
+
+        <Button
+            android:layout_marginTop="50dp"
+            android:id="@+id/btn_buy_package"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/click_here"
+            android:layout_gravity="start"/>
+
+        <Button
+            android:layout_marginTop="50dp"
+            android:id="@+id/btn_sport_interactive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/click_here"
+            android:layout_gravity="end"/>
+
+        <Button
+            android:layout_marginTop="50dp"
+            android:id="@+id/btn_setting"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/click_here"
+            android:layout_gravity="end"
+            android:layout_marginEnd="50dp"/>
 
         <TextView
             android:id="@+id/tv_lorem_2"

@@ -11,9 +11,11 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.FrameLayout.LayoutParams
+import android.widget.ImageView
 import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.annotation.DrawableRes
@@ -23,7 +25,6 @@ import com.luke.libtooltip.extensions.afterMeasured
 import com.luke.libtooltip.extensions.getDecorRect
 import com.luke.libtooltip.extensions.getDisplayHeight
 import com.luke.libtooltip.extensions.getDisplayWidth
-import com.luke.libtooltip.extensions.getLocationOnScreen
 import com.luke.libtooltip.extensions.getVisibleRect
 import com.luke.libtooltip.extensions.onScrollChangedListener
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +41,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     private val popUpWindow: PopupWindow
     private val tooltipView: View
     private val tooltipTextView: TextView?
+    private val tooltipArrowView: ImageView
 
     private var tooltipViewMeasureWidth: Int = 0
     private var tooltipViewMeasureHeight: Int = 0
@@ -48,12 +50,14 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     private var onScrollChangedListener: ViewTreeObserver.OnScrollChangedListener? = null
 
     private var decorViewRect: Rect = Rect(0, 0, 0, 0)
+    private var anchorViewRect: Rect = Rect(0, 0, 0, 0)
 
     init {
         val tooltipLayoutId = builder.layoutId ?: R.layout.tooltip_default_layout
         tooltipView = LayoutInflater.from(context).inflate(tooltipLayoutId, null, false)
         tooltipTextView = tooltipView.findViewById(R.id.tv_tooltip_content)
         tooltipTextView?.text = builder.content ?: ""
+        tooltipArrowView = tooltipView.findViewById(R.id.iv_tooltip_arrow)
 
 
         popUpWindow = PopupWindow(
@@ -70,10 +74,9 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
                     @SuppressLint("ClickableViewAccessibility")
                     override fun onTouch(view: View, event: MotionEvent): Boolean {
                         if (event.action == MotionEvent.ACTION_OUTSIDE) {
-//                            if (builder.dismissWhenTouchOutside) {
-//                                this@Balloon.dismiss()
-//                            }
-//                            onBalloonOutsideTouchListener?.onBalloonOutsideTouch(view, event)
+                            if (builder.dismissStrategy == DismissStrategy.DISMISS_WHEN_TOUCH_OUTSIDE) {
+                                dismiss()
+                            }
                             return true
                         }
                         return false
@@ -81,50 +84,26 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
                 }
             )
         }
-    }
 
-    private fun findPositionWithPositionSetup(
-        viewWidth: Int,
-        viewHeight: Int,
-        point: Point
-    ): Point {
-
-        Log.d(TAG, "Anchor view width: $viewWidth - Anchor view height: $viewHeight")
-
-        var moveXSpace = 0
-        var moveYSpace = 0
-        when (builder.anchorPosition) {
-            TooltipPosition.TOP_LEFT -> {
-                moveXSpace = 0
-                moveYSpace = 0
-            }
-
-            TooltipPosition.TOP_CENTER -> {
-                moveXSpace = (viewWidth / 2 - tooltipViewMeasureWidth / 2)
-                moveYSpace = 0
-            }
-
-            TooltipPosition.TOP_RIGHT -> {
-                moveXSpace = viewWidth
-                moveYSpace = 0
-            }
-
-            TooltipPosition.BOTTOM_LEFT -> {
-                moveXSpace = 0
-                moveYSpace = viewHeight
-            }
-
-            TooltipPosition.BOTTOM_CENTER -> {
-                moveXSpace = viewWidth / 2 - tooltipViewMeasureWidth / 2
-                moveYSpace = viewHeight
-            }
-
-            TooltipPosition.BOTTOM_RIGHT -> {
-                moveXSpace = viewWidth
-                moveYSpace = viewHeight
+        if (builder.dismissStrategy == DismissStrategy.DISMISS_WHEN_TOUCH_INSIDE) {
+            tooltipView.setOnClickListener {
+                popUpWindow.dismiss()
             }
         }
-        return Point(point.x + moveXSpace, point.y + moveYSpace)
+    }
+
+    private fun findTooltipRawPosition(
+        anchorView: View,
+    ): Point {
+        return anchorView.getVisibleRect().let {
+            tooltipTextView?.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+            val tooltipViewWidth = tooltipTextView?.measuredWidth ?: 0
+            val tooltipViewHeight = tooltipTextView?.measuredHeight ?: 0
+            Point(
+                (it.left + (it.width() / 2)) - (tooltipViewWidth / 2),
+                it.bottom
+            )
+        }
     }
 
     private fun shouldShowTooltip(anchorView: View): Boolean {
@@ -135,13 +114,8 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         )
 
         when (builder.anchorPosition) {
-            TooltipPosition.TOP_LEFT -> {
-                if (anchorViewVisibleRect.top > getDisplayHeight() || anchorViewVisibleRect.left <= 0) {
-                    return false
-                }
-            }
 
-            TooltipPosition.TOP_CENTER -> {
+            TooltipPosition.TOP -> {
                 return (
                         !(
                                 //the anchor's rect with full height but the bottom is out of screen
@@ -153,42 +127,19 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
                         )
             }
 
-            TooltipPosition.TOP_RIGHT -> {
-                if (anchorViewVisibleRect.bottom < anchorView.height || anchorViewVisibleRect.right < 0) {
-                    return false
-                }
-            }
-
-            TooltipPosition.BOTTOM_LEFT -> {
+            TooltipPosition.BOTTOM -> {
                 if (anchorViewVisibleRect.bottom < 0 || (anchorViewVisibleRect.bottom >= getDisplayHeight() && (anchorViewVisibleRect.top - anchorViewVisibleRect.bottom) < anchorView.height)) {
                     return false
                 }
             }
 
-            TooltipPosition.BOTTOM_CENTER -> {
-                if (anchorViewVisibleRect.bottom < 0 || (anchorViewVisibleRect.bottom >= getDisplayHeight() && (anchorViewVisibleRect.top - anchorViewVisibleRect.bottom) < anchorView.height)) {
-                    return false
-                }
-            }
-
-            TooltipPosition.BOTTOM_RIGHT -> {
-                if (anchorViewVisibleRect.bottom < 0 || (anchorViewVisibleRect.bottom >= getDisplayHeight() && (anchorViewVisibleRect.top - anchorViewVisibleRect.bottom) < anchorView.height)) {
-                    return false
-                }
-            }
         }
         return true
     }
 
     private fun findPositionAndExecuteCallback(anchorView: View, callback: (point: Point) -> Unit) {
-
-        val locationPoint = anchorView.getLocationOnScreen()
-        Log.d(TAG, "View position on screen: $locationPoint")
-
-        savedPositionToShow = findPositionWithPositionSetup(
-            viewWidth = anchorView.width,
-            viewHeight = anchorView.height,
-            point = Point(locationPoint.x, locationPoint.y)
+        savedPositionToShow = findTooltipRawPosition(
+            anchorView = anchorView,
         )
         callback.invoke(savedPositionToShow)
     }
@@ -201,11 +152,8 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         CoroutineScope(Dispatchers.IO).launch {
             withTimeoutOrNull(1_000) {
                 anchorView.afterMeasured {
-                    val locationPoint = anchorView.getLocationOnScreen()
-                    savedPositionToShow = findPositionWithPositionSetup(
-                        viewWidth = anchorView.width,
-                        viewHeight = anchorView.height,
-                        point = Point(locationPoint.x, locationPoint.y)
+                    savedPositionToShow = findTooltipRawPosition(
+                        anchorView = anchorView,
                     )
 
                     Log.d(TAG, "emit before emit")
@@ -218,6 +166,10 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         }
     }
 
+    private fun adjustPositionAfterLayout() {
+
+    }
+
     /**
      * Calculate some constant values before show tooltip
      * @param anchorView the view that tooltip will be shown
@@ -226,14 +178,67 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         val decorRect = anchorView.getDecorRect()
         Log.d(TAG, "Decor rect: $decorRect")
         decorViewRect = decorRect
+        val anchorRect = anchorView.getVisibleRect()
 
         tooltipTextView?.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
         tooltipViewMeasureWidth = tooltipTextView?.measuredWidth ?: 0
         tooltipViewMeasureHeight = tooltipTextView?.measuredHeight ?: 0
+
+        tooltipArrowView.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+        val tooltipArrowViewWidth = tooltipArrowView.measuredWidth
         Log.d(
             TAG,
-            "Tooltip view width: $tooltipViewMeasureWidth - Tooltip view height: $tooltipViewMeasureHeight"
+            " prepareBeforeShow Tooltip view width: $tooltipViewMeasureWidth - Tooltip view height: $tooltipViewMeasureHeight"
         )
+        Log.d(
+            TAG,
+            " prepareBeforeShow anchorRect centerX: ${anchorRect.centerX()} - arrow width: ${tooltipArrowViewWidth}"
+        )
+        Log.d(
+            TAG,
+            " prepareBeforeShow savedPositionToShow x: ${savedPositionToShow.x} - savedPositionToShow y: ${savedPositionToShow.y}"
+        )
+        Log.d(
+            TAG,
+            " prepareBeforeShow margin left: ${anchorRect.left - savedPositionToShow.x}"
+        )
+
+        val margin = if(savedPositionToShow.x + tooltipViewMeasureWidth > getDisplayWidth()) {
+            val newPosition = getDisplayWidth() - tooltipViewMeasureWidth
+            anchorRect.centerX() - newPosition - (tooltipArrowViewWidth / 2)
+        } else if(savedPositionToShow.x < 0) {
+            anchorRect.centerX() - (tooltipArrowViewWidth / 2)
+        } else {
+            anchorRect.centerX() - savedPositionToShow.x - (tooltipArrowViewWidth / 2)
+
+        }
+
+        val layoutParams = tooltipArrowView.layoutParams as ViewGroup.MarginLayoutParams
+        layoutParams.setMargins(
+            margin,
+            0,
+            0,
+            0
+        )
+
+        // Apply the updated LayoutParams
+        tooltipArrowView.layoutParams = layoutParams
+
+
+//        when(builder.anchorPosition) {
+//            TooltipPosition.BOTTOM_LEFT,
+//            TooltipPosition.TOP_LEFT -> {
+//                tooltipArrowGuideline.setGuidelinePercent(0.1f)
+//            }
+//            TooltipPosition.BOTTOM_CENTER,
+//            TooltipPosition.TOP_CENTER -> {
+//                tooltipArrowGuideline.setGuidelinePercent(0.5f)
+//            }
+//            TooltipPosition.BOTTOM_RIGHT,
+//            TooltipPosition.TOP_RIGHT -> {
+//                tooltipArrowGuideline.setGuidelinePercent(0.9f)
+//            }
+//        }
     }
 
     internal suspend fun showAsync(anchorView: View) {
@@ -247,7 +252,6 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
 
     internal fun show(anchorView: View) {
         findPositionAndExecuteCallback(anchorView) { point ->
-            Log.d(TAG, "Show tooltip in sync")
             show(anchorView, point)
         }
     }
@@ -299,7 +303,10 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         var layoutId: Int? = null
             private set
 
-        var anchorPosition: TooltipPosition = TooltipPosition.BOTTOM_RIGHT
+        var anchorPosition: TooltipPosition = TooltipPosition.BOTTOM
+            private set
+
+        var dismissStrategy: DismissStrategy = DismissStrategy.DISMISS_WHEN_TOUCH_INSIDE
             private set
 
         fun setContent(content: String): TooltipBuilder = this.apply {
@@ -314,6 +321,10 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             this.anchorPosition = position
         }
 
+        fun setDismissStrategy(strategy: DismissStrategy): TooltipBuilder = this.apply {
+            this.dismissStrategy = strategy
+        }
+
         fun build(context: Context): TooltipView {
             return TooltipView(context = context, builder = this)
         }
@@ -326,11 +337,12 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     }
 
     enum class TooltipPosition {
-        TOP_LEFT,
-        TOP_CENTER,
-        TOP_RIGHT,
-        BOTTOM_LEFT,
-        BOTTOM_CENTER,
-        BOTTOM_RIGHT
+        TOP,
+        BOTTOM,
+    }
+
+    enum class DismissStrategy {
+        DISMISS_WHEN_TOUCH_OUTSIDE,
+        DISMISS_WHEN_TOUCH_INSIDE
     }
 }
