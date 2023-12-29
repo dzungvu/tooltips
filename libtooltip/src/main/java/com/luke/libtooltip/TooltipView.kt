@@ -99,6 +99,20 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             tooltipTextView?.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
             val tooltipViewWidth = tooltipTextView?.measuredWidth ?: 0
             val tooltipViewHeight = tooltipTextView?.measuredHeight ?: 0
+            when(builder.anchorPosition) {
+                TooltipPosition.TOP -> {
+                    Point(
+                        (it.left + (it.width() / 2)) - (tooltipViewWidth / 2),
+                        it.top - tooltipViewHeight
+                    )
+                }
+                TooltipPosition.BOTTOM -> {
+                    Point(
+                        (it.left + (it.width() / 2)) - (tooltipViewWidth / 2),
+                        it.bottom
+                    )
+                }
+            }
             Point(
                 (it.left + (it.width() / 2)) - (tooltipViewWidth / 2),
                 it.bottom
@@ -176,9 +190,9 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
      */
     private fun prepareBeforeShow(anchorView: View) {
         val decorRect = anchorView.getDecorRect()
+        val anchorRect = anchorView.getVisibleRect()
         Log.d(TAG, "Decor rect: $decorRect")
         decorViewRect = decorRect
-        val anchorRect = anchorView.getVisibleRect()
 
         tooltipTextView?.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
         tooltipViewMeasureWidth = tooltipTextView?.measuredWidth ?: 0
@@ -210,7 +224,6 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             anchorRect.centerX() - (tooltipArrowViewWidth / 2)
         } else {
             anchorRect.centerX() - savedPositionToShow.x - (tooltipArrowViewWidth / 2)
-
         }
 
         val layoutParams = tooltipArrowView.layoutParams as ViewGroup.MarginLayoutParams
@@ -223,22 +236,6 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
 
         // Apply the updated LayoutParams
         tooltipArrowView.layoutParams = layoutParams
-
-
-//        when(builder.anchorPosition) {
-//            TooltipPosition.BOTTOM_LEFT,
-//            TooltipPosition.TOP_LEFT -> {
-//                tooltipArrowGuideline.setGuidelinePercent(0.1f)
-//            }
-//            TooltipPosition.BOTTOM_CENTER,
-//            TooltipPosition.TOP_CENTER -> {
-//                tooltipArrowGuideline.setGuidelinePercent(0.5f)
-//            }
-//            TooltipPosition.BOTTOM_RIGHT,
-//            TooltipPosition.TOP_RIGHT -> {
-//                tooltipArrowGuideline.setGuidelinePercent(0.9f)
-//            }
-//        }
     }
 
     internal suspend fun showAsync(anchorView: View) {
