@@ -11,6 +11,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.View.MeasureSpec
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
@@ -18,7 +19,11 @@ import android.widget.FrameLayout.LayoutParams
 import android.widget.ImageView
 import android.widget.PopupWindow
 import android.widget.TextView
+import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
+import androidx.annotation.LayoutRes
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.luke.libtooltip.extensions.afterMeasured
@@ -38,8 +43,10 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         const val TAG = "TooltipView"
     }
 
+    private var isDismissed: Boolean = false
     private val popUpWindow: PopupWindow
-    private val tooltipView: View
+    private val tooltipContainerView: View
+    private val tooltipContentView: View
     private val tooltipTextView: TextView?
     private val tooltipArrowView: ImageView
 
@@ -50,21 +57,62 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     private var onScrollChangedListener: ViewTreeObserver.OnScrollChangedListener? = null
 
     private var decorViewRect: Rect = Rect(0, 0, 0, 0)
-    private var anchorViewRect: Rect = Rect(0, 0, 0, 0)
 
     init {
-        val tooltipLayoutId = builder.layoutId ?: when(builder.anchorPosition) {
-            TooltipPosition.TOP -> R.layout.tooltip_default_layout_top
-            TooltipPosition.BOTTOM -> R.layout.tooltip_default_layout
+        //tooltip container view
+        val tooltipContainerLayoutId = when (builder.anchorPosition) {
+            TooltipPosition.TOP -> R.layout.tooltip_container_top
+            TooltipPosition.BOTTOM -> R.layout.tooltip_container_bottom
         }
-        tooltipView = LayoutInflater.from(context).inflate(tooltipLayoutId, null, false)
-        tooltipTextView = tooltipView.findViewById(R.id.tv_tooltip_content)
+        tooltipContainerView =
+            LayoutInflater.from(context).inflate(tooltipContainerLayoutId, null, false)
+        //tooltip content view
+        val tooltipContentLayoutId = builder.contentLayoutId ?: R.layout.tooltip_content
+        tooltipContentView =
+            LayoutInflater.from(context).inflate(tooltipContentLayoutId, null, false)
+        tooltipContainerView.findViewById<FrameLayout>(R.id.fl_tooltip_content_container)
+            .addView(tooltipContentView)
+        //tooltip text view
+        tooltipTextView = tooltipContentView.findViewById(R.id.tv_tooltip_content)
+        if (tooltipTextView == null) {
+            Log.e(TAG, "Tooltip text view is null")
+        }
         tooltipTextView?.text = builder.content ?: ""
-        tooltipArrowView = tooltipView.findViewById(R.id.iv_tooltip_arrow)
+        //tooltip arrow view
+        tooltipArrowView = tooltipContainerView.findViewById(R.id.iv_tooltip_arrow)
+        if (builder.arrowResId != null) {
+            tooltipArrowView.setImageResource(builder.arrowResId!!)
+        }
+        //tooltip text color
+        if (builder.contentLayoutId == null && builder.textColorRes != null) {
+            val textColor = builder.textColorRes?.let {
+                ContextCompat.getColor(context, it)
+            } ?: Color.WHITE
+            tooltipTextView?.setTextColor(textColor)
+        }
+        //tooltip background
+        if (builder.contentLayoutId == null && builder.backgroundColorRes != null) {
+            val backgroundColor = builder.backgroundColorRes?.let {
+                ContextCompat.getColor(context, it)
+            } ?: Color.WHITE
+            ContextCompat.getDrawable(context, R.drawable.rectangle)?.let {
+                DrawableCompat.setTint(it, backgroundColor)
+                tooltipContentView.background = it
+            }
+        }
+        if (builder.arrowResId == null && builder.backgroundColorRes != null) {
+            val backgroundColor = builder.backgroundColorRes?.let {
+                ContextCompat.getColor(context, it)
+            } ?: Color.WHITE
+            ContextCompat.getDrawable(context, R.drawable.polygon)?.let {
+                DrawableCompat.setTint(it, backgroundColor)
+                tooltipArrowView.setImageDrawable(it)
+            }
+        }
 
 
         popUpWindow = PopupWindow(
-            tooltipView,
+            tooltipContainerView,
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,
             true
@@ -78,7 +126,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
                     override fun onTouch(view: View, event: MotionEvent): Boolean {
                         if (event.action == MotionEvent.ACTION_OUTSIDE) {
                             if (builder.dismissStrategy == DismissStrategy.DISMISS_WHEN_TOUCH_OUTSIDE) {
-                                dismiss()
+                                dismissTooltip()
                             }
                             return true
                         }
@@ -89,8 +137,8 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         }
 
         if (builder.dismissStrategy == DismissStrategy.DISMISS_WHEN_TOUCH_INSIDE) {
-            tooltipView.setOnClickListener {
-                popUpWindow.dismiss()
+            tooltipContainerView.setOnClickListener {
+                dismissTooltip()
             }
         }
     }
@@ -99,11 +147,11 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         anchorView: View,
     ): Point {
         return anchorView.getVisibleRect().let {
-            tooltipTextView?.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
-            val tooltipViewWidth = tooltipTextView?.measuredWidth ?: 0
-            val tooltipViewHeight = tooltipTextView?.measuredHeight ?: 0
+            measureContentView()
+            val tooltipViewWidth = tooltipContentView.measuredWidth
+            val tooltipViewHeight = tooltipContentView.measuredHeight
 
-            when(builder.anchorPosition) {
+            when (builder.anchorPosition) {
                 TooltipPosition.TOP -> {
                     tooltipArrowView.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
                     val arrowWidth = tooltipArrowView.measuredWidth
@@ -113,6 +161,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
                         it.top - tooltipViewHeight - arrowHeight
                     )
                 }
+
                 TooltipPosition.BOTTOM -> {
                     Point(
                         (it.left + (it.width() / 2)) - (tooltipViewWidth / 2),
@@ -183,8 +232,16 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         }
     }
 
-    private fun adjustPositionAfterLayout() {
+    private fun measureContentView() {
+        when (tooltipContentView) {
+            is TextView -> {
+                tooltipContentView.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+            }
 
+            else -> {
+                tooltipContentView.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
+            }
+        }
     }
 
     /**
@@ -197,9 +254,9 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         Log.d(TAG, "Decor rect: $decorRect")
         decorViewRect = decorRect
 
-        tooltipTextView?.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
-        tooltipViewMeasureWidth = tooltipTextView?.measuredWidth ?: 0
-        tooltipViewMeasureHeight = tooltipTextView?.measuredHeight ?: 0
+        measureContentView()
+        tooltipViewMeasureWidth = tooltipContentView.measuredWidth
+        tooltipViewMeasureHeight = tooltipContentView.measuredHeight
 
         tooltipArrowView.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
         val tooltipArrowViewWidth = tooltipArrowView.measuredWidth
@@ -220,10 +277,10 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             " prepareBeforeShow margin left: ${anchorRect.left - savedPositionToShow.x}"
         )
 
-        val margin = if(savedPositionToShow.x + tooltipViewMeasureWidth > getDisplayWidth()) {
+        val margin = if (savedPositionToShow.x + tooltipViewMeasureWidth > getDisplayWidth()) {
             val newPosition = getDisplayWidth() - tooltipViewMeasureWidth
             anchorRect.centerX() - newPosition - (tooltipArrowViewWidth / 2)
-        } else if(savedPositionToShow.x < 0) {
+        } else if (savedPositionToShow.x < 0) {
             anchorRect.centerX() - (tooltipArrowViewWidth / 2)
         } else {
             anchorRect.centerX() - savedPositionToShow.x - (tooltipArrowViewWidth / 2)
@@ -257,12 +314,17 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     }
 
     private fun show(anchorView: View, point: Point) {
-        prepareBeforeShow(anchorView)
-        if (!popUpWindow.isShowing) {
-            Log.d(TAG, "Point to show: $point")
-            initScrollListenerForAnchor(anchorView)
-            if (shouldShowTooltip(anchorView)) {
-                popUpWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, point.x, point.y)
+        if (isDismissed) {
+            Log.d(TAG, "Tooltip is dismissed")
+            return
+        } else {
+            prepareBeforeShow(anchorView)
+            if (!popUpWindow.isShowing) {
+                Log.d(TAG, "Point to show: $point")
+                initScrollListenerForAnchor(anchorView)
+                if (shouldShowTooltip(anchorView)) {
+                    popUpWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, point.x, point.y)
+                }
             }
         }
     }
@@ -294,13 +356,37 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         }
     }
 
+    private fun dismissTooltip() {
+        if (popUpWindow.isShowing) {
+            popUpWindow.dismiss()
+        }
+        builder.tooltipDismissListener?.onTooltipDismissed()
+        isDismissed = true
+    }
+
+    override fun onDestroy(owner: LifecycleOwner) {
+        dismissTooltip()
+        super.onDestroy(owner)
+    }
 
     class TooltipBuilder {
         var content: String? = null
             private set
 
+        @LayoutRes
+        var contentLayoutId: Int? = null
+            private set
+
         @DrawableRes
-        var layoutId: Int? = null
+        var arrowResId: Int? = null
+            private set
+
+        @ColorRes
+        var backgroundColorRes: Int? = null
+            private set
+
+        @ColorRes
+        var textColorRes: Int? = null
             private set
 
         var anchorPosition: TooltipPosition = TooltipPosition.BOTTOM
@@ -309,12 +395,32 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         var dismissStrategy: DismissStrategy = DismissStrategy.DISMISS_WHEN_TOUCH_INSIDE
             private set
 
+        var tooltipDismissListener: TooltipDismissListener? = null
+            private set
+
         fun setContent(content: String): TooltipBuilder = this.apply {
             this.content = content
         }
 
-        fun setLayoutId(@DrawableRes layoutId: Int) = this.apply {
-            this.layoutId = layoutId
+        /**
+         * Set custom layout for tooltip
+         * @param layoutId the layout id
+         * @note: the layout must have TextView with id is tv_tooltip_content
+         */
+        fun setContentLayoutId(@LayoutRes layoutId: Int) = this.apply {
+            this.contentLayoutId = layoutId
+        }
+
+        fun setArrowResId(@DrawableRes arrowResId: Int) = this.apply {
+            this.arrowResId = arrowResId
+        }
+
+        fun setBackgroundColorRes(@ColorRes backgroundColorRes: Int) = this.apply {
+            this.backgroundColorRes = backgroundColorRes
+        }
+
+        fun setTextColorRes(@ColorRes textColorRes: Int) = this.apply {
+            this.textColorRes = textColorRes
         }
 
         fun setAnchorPosition(position: TooltipPosition): TooltipBuilder = this.apply {
@@ -325,15 +431,24 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             this.dismissStrategy = strategy
         }
 
+        fun setTooltipDismissListener(tooltipDismissListener: TooltipDismissListener): TooltipBuilder = this.apply {
+            this.tooltipDismissListener = tooltipDismissListener
+        }
+
         fun build(context: Context): TooltipView {
             return TooltipView(context = context, builder = this)
         }
 
     }
 
-    override fun onDestroy(owner: LifecycleOwner) {
-        popUpWindow.dismiss()
-        super.onDestroy(owner)
+    interface TooltipDismissListener {
+        fun onTooltipDismissed()
+        companion object {
+            inline operator fun invoke(crossinline block: () -> Unit) =
+                object : TooltipDismissListener {
+                    override fun onTooltipDismissed() = block()
+                }
+        }
     }
 
     enum class TooltipPosition {

@@ -3,6 +3,7 @@ package com.luke.tootips
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.luke.libtooltip.TooltipView
 import com.luke.libtooltip.extensions.showTooltip
@@ -43,6 +44,13 @@ class MainActivity : AppCompatActivity() {
         return TooltipView.TooltipBuilder()
             .setContent(content)
             .setAnchorPosition(tooltipPosition)
+            .setContentLayoutId(R.layout.custom_tooltip_content)
+            .setArrowResId(R.drawable.arrow)
+            .setTooltipDismissListener(TooltipView.TooltipDismissListener {
+                Toast.makeText(this, "Tooltip dismissed", Toast.LENGTH_SHORT).show()
+            })
+//            .setBackgroundColorRes(android.R.color.holo_green_light)
+//            .setTextColorRes(android.R.color.holo_red_light)
             .setDismissStrategy(TooltipView.DismissStrategy.DISMISS_WHEN_TOUCH_INSIDE)
             .build(context = this)
     }
