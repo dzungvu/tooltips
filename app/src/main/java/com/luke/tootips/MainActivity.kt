@@ -23,19 +23,19 @@ class MainActivity : AppCompatActivity() {
         val btnSetting = findViewById<Button>(R.id.btn_setting)
         val btnSportInteractive = findViewById<Button>(R.id.btn_sport_interactive)
 
-        val tooltipView = buildTooltipView("Chọn nội dung theo từng thể loại cụ thể")
-        val tooltipBuyPackageView = buildTooltipView("Chọn gói dịch vụ phổ biến bạn muốn mua")
-        val tooltipSportInteractive = buildTooltipView("Khám phá dữ liệu thời gian thực của trận đấu")
-        val tooltipSetting = buildTooltipView("Lụa chọn chất lượng xem video", TooltipView.TooltipPosition.TOP)
+        val tooltipView = buildTooltipView("Lorem Ipsum is simply dummy text of the print and typesetting")
+        val tooltipBuyPackageView = buildTooltipView("It is a long established fact")
+        val tooltipSportInteractive = buildTooltipView("Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin ant from 45 BC, making it over 2000 years old")
+        val tooltipSetting = buildTooltipView("Where can I get some?", TooltipView.TooltipPosition.TOP)
 //        val tooltipSetting = buildTooltipView("Text content")
 
         val tvHello = findViewById<TextView>(R.id.tv_hello)
 
 
-//        btnClick.showTooltip(tooltipView)
-//        btnBuyPackage.showTooltip(tooltipBuyPackageView)
+        btnClick.showTooltip(tooltipView)
+        btnBuyPackage.showTooltip(tooltipBuyPackageView)
         btnSportInteractive.showTooltip(tooltipSportInteractive)
-//        btnSetting.showTooltip(tooltipSetting)
+        btnSetting.showTooltip(tooltipSetting)
 
         btnSportInteractive.setOnClickListener {
             showDefaultAlertDialog()
@@ -52,12 +52,12 @@ class MainActivity : AppCompatActivity() {
         return TooltipView.TooltipBuilder()
             .setContent(content)
             .setAnchorPosition(tooltipPosition)
-            .setContentLayoutId(R.layout.custom_tooltip_content)
-            .setArrowResId(R.drawable.arrow)
+//            .setContentLayoutId(R.layout.custom_tooltip_content)
+//            .setArrowResId(R.drawable.arrow)
             .setTooltipDismissListener(TooltipView.TooltipDismissListener {
                 Toast.makeText(this, "Tooltip dismissed", Toast.LENGTH_SHORT).show()
             })
-            .setBackgroundColorRes(android.R.color.holo_green_light)
+//            .setBackgroundColorRes(android.R.color.holo_green_light)
 //            .setTextColorRes(android.R.color.holo_red_light)
             .setDismissStrategy(TooltipView.DismissStrategy.DISMISS_WHEN_TOUCH_INSIDE)
             .build(context = this)

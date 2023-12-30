@@ -22,6 +22,8 @@ import android.widget.TextView
 import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
 import androidx.annotation.LayoutRes
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.isVisible
@@ -36,6 +38,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.min
 
 class TooltipView(private val context: Context, private val builder: TooltipBuilder) :
     DefaultLifecycleObserver {
@@ -157,7 +160,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     ): Point {
         return anchorView.getVisibleRect().let {
             measureContentView()
-            val tooltipViewWidth = tooltipContentView.measuredWidth
+            val tooltipViewWidth = min(tooltipContentView.measuredWidth, getDisplayWidth())
             val tooltipViewHeight = tooltipContentView.measuredHeight
 
             when (builder.anchorPosition) {
@@ -251,7 +254,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     private fun measureContentView() {
         when (tooltipContentView) {
             is TextView -> {
-                tooltipContentView.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+                tooltipContentView.measure(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
             }
 
             else -> {
@@ -271,7 +274,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         decorViewRect = decorRect
 
         measureContentView()
-        tooltipViewMeasureWidth = tooltipContentView.measuredWidth
+        tooltipViewMeasureWidth = min(tooltipContentView.measuredWidth, getDisplayWidth())
         tooltipViewMeasureHeight = tooltipContentView.measuredHeight
 
         tooltipArrowView.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
@@ -292,10 +295,23 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             TAG,
             " prepareBeforeShow margin left: ${anchorRect.left - savedPositionToShow.x}"
         )
+        var marginRight = 0
 
         val margin = if (savedPositionToShow.x + tooltipViewMeasureWidth > getDisplayWidth()) {
             val newPosition = getDisplayWidth() - tooltipViewMeasureWidth
-            anchorRect.centerX() - newPosition - (tooltipArrowViewWidth / 2)
+            if(newPosition == 0) {
+                val constrainSet = ConstraintSet()
+                constrainSet.clone(tooltipContainerView as ConstraintLayout)
+                constrainSet.clear(R.id.iv_tooltip_arrow, ConstraintSet.START)
+                constrainSet.connect(R.id.iv_tooltip_arrow, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
+                marginRight = getDisplayWidth() - anchorRect.centerX() - (tooltipArrowViewWidth / 2)
+                constrainSet.setMargin(R.id.iv_tooltip_arrow, ConstraintSet.END, marginRight)
+                constrainSet.applyTo(tooltipContainerView)
+                0
+            } else {
+                anchorRect.centerX() - newPosition - (tooltipArrowViewWidth / 2)
+            }
+
         } else if (savedPositionToShow.x < 0) {
             anchorRect.centerX() - (tooltipArrowViewWidth / 2)
         } else {
@@ -306,7 +322,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         layoutParams.setMargins(
             margin,
             0,
-            0,
+            marginRight,
             0
         )
 
