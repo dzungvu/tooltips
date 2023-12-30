@@ -66,23 +66,27 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         }
         tooltipContainerView =
             LayoutInflater.from(context).inflate(tooltipContainerLayoutId, null, false)
+
         //tooltip content view
         val tooltipContentLayoutId = builder.contentLayoutId ?: R.layout.tooltip_content
         tooltipContentView =
             LayoutInflater.from(context).inflate(tooltipContentLayoutId, null, false)
         tooltipContainerView.findViewById<FrameLayout>(R.id.fl_tooltip_content_container)
             .addView(tooltipContentView)
+
         //tooltip text view
         tooltipTextView = tooltipContentView.findViewById(R.id.tv_tooltip_content)
         if (tooltipTextView == null) {
             Log.e(TAG, "Tooltip text view is null")
         }
         tooltipTextView?.text = builder.content ?: ""
+
         //tooltip arrow view
         tooltipArrowView = tooltipContainerView.findViewById(R.id.iv_tooltip_arrow)
         if (builder.arrowResId != null) {
             tooltipArrowView.setImageResource(builder.arrowResId!!)
         }
+
         //tooltip text color
         if (builder.contentLayoutId == null && builder.textColorRes != null) {
             val textColor = builder.textColorRes?.let {
@@ -90,6 +94,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             } ?: Color.WHITE
             tooltipTextView?.setTextColor(textColor)
         }
+
         //tooltip background
         if (builder.contentLayoutId == null && builder.backgroundColorRes != null) {
             val backgroundColor = builder.backgroundColorRes?.let {
@@ -113,8 +118,8 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
 
         popUpWindow = PopupWindow(
             tooltipContainerView,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
+            LayoutParams.WRAP_CONTENT,
+            LayoutParams.WRAP_CONTENT,
             true
         ).apply {
             isOutsideTouchable = true
@@ -411,30 +416,66 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             this.contentLayoutId = layoutId
         }
 
+        /**
+         * Set custom arrow for tooltip
+         * @param arrowResId the arrow resource id
+         * If this method is not called, the default arrow will be used
+         * @see R.drawable.polygon
+         */
         fun setArrowResId(@DrawableRes arrowResId: Int) = this.apply {
             this.arrowResId = arrowResId
         }
 
+        /**
+         * Set background color for tooltip
+         * @param backgroundColorRes the background color resource id
+         * If this method is not called, the default background color will be used
+         */
         fun setBackgroundColorRes(@ColorRes backgroundColorRes: Int) = this.apply {
             this.backgroundColorRes = backgroundColorRes
         }
 
+        /**
+         * Set text color for tooltip
+         * @param textColorRes the text color resource id
+         * If this method is not called, the default text color will be used
+         */
         fun setTextColorRes(@ColorRes textColorRes: Int) = this.apply {
             this.textColorRes = textColorRes
         }
 
+        /**
+         * Set anchor position for tooltip
+         * @param position the anchor position
+         * If this method is not called, the default anchor position will be used
+         * @see TooltipPosition.BOTTOM
+         */
         fun setAnchorPosition(position: TooltipPosition): TooltipBuilder = this.apply {
             this.anchorPosition = position
         }
 
+        /**
+         * Set dismiss strategy for tooltip
+         * @param strategy the dismiss strategy
+         * If this method is not called, the default dismiss strategy will be used
+         * @see DismissStrategy.DISMISS_WHEN_TOUCH_INSIDE
+         */
         fun setDismissStrategy(strategy: DismissStrategy): TooltipBuilder = this.apply {
             this.dismissStrategy = strategy
         }
 
+        /**
+         * Set tooltip dismiss listener
+         * @param tooltipDismissListener the tooltip dismiss listener
+         */
         fun setTooltipDismissListener(tooltipDismissListener: TooltipDismissListener): TooltipBuilder = this.apply {
             this.tooltipDismissListener = tooltipDismissListener
         }
 
+        /**
+         * Build tooltip view
+         * @param context the context
+         */
         fun build(context: Context): TooltipView {
             return TooltipView(context = context, builder = this)
         }
