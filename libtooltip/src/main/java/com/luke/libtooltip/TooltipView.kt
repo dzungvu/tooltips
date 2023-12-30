@@ -53,7 +53,10 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     private var anchorViewRect: Rect = Rect(0, 0, 0, 0)
 
     init {
-        val tooltipLayoutId = builder.layoutId ?: R.layout.tooltip_default_layout
+        val tooltipLayoutId = builder.layoutId ?: when(builder.anchorPosition) {
+            TooltipPosition.TOP -> R.layout.tooltip_default_layout_top
+            TooltipPosition.BOTTOM -> R.layout.tooltip_default_layout
+        }
         tooltipView = LayoutInflater.from(context).inflate(tooltipLayoutId, null, false)
         tooltipTextView = tooltipView.findViewById(R.id.tv_tooltip_content)
         tooltipTextView?.text = builder.content ?: ""
@@ -99,11 +102,15 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             tooltipTextView?.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
             val tooltipViewWidth = tooltipTextView?.measuredWidth ?: 0
             val tooltipViewHeight = tooltipTextView?.measuredHeight ?: 0
+
             when(builder.anchorPosition) {
                 TooltipPosition.TOP -> {
+                    tooltipArrowView.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+                    val arrowWidth = tooltipArrowView.measuredWidth
+                    val arrowHeight = tooltipArrowView.measuredHeight
                     Point(
                         (it.left + (it.width() / 2)) - (tooltipViewWidth / 2),
-                        it.top - tooltipViewHeight
+                        it.top - tooltipViewHeight - arrowHeight
                     )
                 }
                 TooltipPosition.BOTTOM -> {
@@ -113,10 +120,6 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
                     )
                 }
             }
-            Point(
-                (it.left + (it.width() / 2)) - (tooltipViewWidth / 2),
-                it.bottom
-            )
         }
     }
 

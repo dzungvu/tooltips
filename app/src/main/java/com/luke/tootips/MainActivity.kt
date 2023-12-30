@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity() {
         val tooltipView = buildTooltipView("Chọn nội dung theo từng thể loại cụ thể")
         val tooltipBuyPackageView = buildTooltipView("Chọn gói dịch vụ phổ biến bạn muốn mua")
         val tooltipSportInteractive = buildTooltipView("Khám phá dữ liệu thời gian thực của trận đấu")
-        val tooltipSetting = buildTooltipView("Lụa chọn chất lượng xem video")
+        val tooltipSetting = buildTooltipView("Lụa chọn chất lượng xem video", TooltipView.TooltipPosition.TOP)
 //        val tooltipSetting = buildTooltipView("Text content")
 
         val tvHello = findViewById<TextView>(R.id.tv_hello)
