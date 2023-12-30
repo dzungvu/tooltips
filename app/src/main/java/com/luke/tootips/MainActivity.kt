@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.luke.libtooltip.TooltipView
 import com.luke.libtooltip.extensions.showTooltip
@@ -31,10 +32,17 @@ class MainActivity : AppCompatActivity() {
         val tvHello = findViewById<TextView>(R.id.tv_hello)
 
 
-        btnClick.showTooltip(tooltipView)
-        btnBuyPackage.showTooltip(tooltipBuyPackageView)
+//        btnClick.showTooltip(tooltipView)
+//        btnBuyPackage.showTooltip(tooltipBuyPackageView)
         btnSportInteractive.showTooltip(tooltipSportInteractive)
-        btnSetting.showTooltip(tooltipSetting)
+//        btnSetting.showTooltip(tooltipSetting)
+
+        btnSportInteractive.setOnClickListener {
+            showDefaultAlertDialog()
+        }
+        btnSetting.setOnClickListener {
+            btnSportInteractive.visibility = if (btnSportInteractive.visibility == TextView.VISIBLE) TextView.GONE else TextView.VISIBLE
+        }
 //        lifecycleScope.launch {
 //            tvHello.showTooltipAsync(tooltipView)
 //        }
@@ -49,9 +57,28 @@ class MainActivity : AppCompatActivity() {
             .setTooltipDismissListener(TooltipView.TooltipDismissListener {
                 Toast.makeText(this, "Tooltip dismissed", Toast.LENGTH_SHORT).show()
             })
-//            .setBackgroundColorRes(android.R.color.holo_green_light)
+            .setBackgroundColorRes(android.R.color.holo_green_light)
 //            .setTextColorRes(android.R.color.holo_red_light)
             .setDismissStrategy(TooltipView.DismissStrategy.DISMISS_WHEN_TOUCH_INSIDE)
             .build(context = this)
+    }
+
+    private fun showDefaultAlertDialog() {
+        val alertDialogBuilder = AlertDialog.Builder(this)
+        alertDialogBuilder.setTitle("Alert Dialog Title")
+        alertDialogBuilder.setMessage("This is a default alert dialog.")
+        alertDialogBuilder.setPositiveButton("OK") { dialog, _ ->
+            // Handle positive button click
+            dialog.dismiss()
+        }
+
+        // Uncomment the following line if you want to include a negative button
+        // alertDialogBuilder.setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+
+        // Uncomment the following line if you want to include a neutral button
+        // alertDialogBuilder.setNeutralButton("Neutral") { dialog, _ -> dialog.dismiss() }
+
+        val alertDialog = alertDialogBuilder.create()
+        alertDialog.show()
     }
 }

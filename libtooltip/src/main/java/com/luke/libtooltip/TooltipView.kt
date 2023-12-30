@@ -24,6 +24,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.LayoutRes
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
+import androidx.core.view.isVisible
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.luke.libtooltip.extensions.afterMeasured
@@ -31,7 +32,6 @@ import com.luke.libtooltip.extensions.getDecorRect
 import com.luke.libtooltip.extensions.getDisplayHeight
 import com.luke.libtooltip.extensions.getDisplayWidth
 import com.luke.libtooltip.extensions.getVisibleRect
-import com.luke.libtooltip.extensions.onScrollChangedListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -54,7 +54,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     private var tooltipViewMeasureHeight: Int = 0
 
     private var savedPositionToShow: Point = Point(0, 0)
-    private var onScrollChangedListener: ViewTreeObserver.OnScrollChangedListener? = null
+    private var onPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
 
     private var decorViewRect: Rect = Rect(0, 0, 0, 0)
 
@@ -115,7 +115,6 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             }
         }
 
-
         popUpWindow = PopupWindow(
             tooltipContainerView,
             LayoutParams.WRAP_CONTENT,
@@ -148,6 +147,11 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         }
     }
 
+    /**
+     * find the point to show tooltip
+     * @param anchorView the view that tooltip will be shown
+     * @return the point to show tooltip
+     */
     private fun findTooltipRawPosition(
         anchorView: View,
     ): Point {
@@ -159,7 +163,6 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             when (builder.anchorPosition) {
                 TooltipPosition.TOP -> {
                     tooltipArrowView.measure(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
-                    val arrowWidth = tooltipArrowView.measuredWidth
                     val arrowHeight = tooltipArrowView.measuredHeight
                     Point(
                         (it.left + (it.width() / 2)) - (tooltipViewWidth / 2),
@@ -178,6 +181,14 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     }
 
     private fun shouldShowTooltip(anchorView: View): Boolean {
+        if (
+            anchorView.visibility != View.VISIBLE
+            || anchorView.alpha == 0f
+            || anchorView.scaleX == 0f
+            || anchorView.scaleY == 0f
+        ) {
+            return false
+        }
         val anchorViewVisibleRect = anchorView.getVisibleRect()
         Log.d(
             TAG,
@@ -313,41 +324,52 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     }
 
     internal fun show(anchorView: View) {
-        findPositionAndExecuteCallback(anchorView) { point ->
-            show(anchorView, point)
+        if(!isDismissed || popUpWindow.isShowing) {
+            findPositionAndExecuteCallback(anchorView) { point ->
+                show(anchorView, point)
+            }
         }
     }
 
     private fun show(anchorView: View, point: Point) {
-        if (isDismissed) {
+        if (isDismissed || popUpWindow.isShowing) {
             Log.d(TAG, "Tooltip is dismissed")
             return
         } else {
             prepareBeforeShow(anchorView)
-            if (!popUpWindow.isShowing) {
-                Log.d(TAG, "Point to show: $point")
-                initScrollListenerForAnchor(anchorView)
-                if (shouldShowTooltip(anchorView)) {
-                    popUpWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, point.x, point.y)
-                }
+            Log.d(TAG, "Point to show: $point")
+            initVisibleListenerForAnchor(anchorView)
+            if (shouldShowTooltip(anchorView)) {
+                popUpWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY, point.x, point.y)
             }
         }
     }
 
-    private fun initScrollListenerForAnchor(anchorView: View) {
-        if (onScrollChangedListener != null) {
+    private fun initVisibleListenerForAnchor(anchorView: View) {
+        if(onPreDrawListener != null) {
             try {
-                anchorView.viewTreeObserver.removeOnScrollChangedListener(onScrollChangedListener)
+                anchorView.viewTreeObserver.removeOnPreDrawListener(onPreDrawListener)
             } catch (e: IllegalStateException) {
                 e.printStackTrace()
             }
         }
-        onScrollChangedListener = anchorView.onScrollChangedListener {
-            if (shouldShowTooltip(anchorView)) {
-                updateTooltipPosition(anchorView)
+        anchorView.viewTreeObserver.addOnPreDrawListener {
+            if (anchorView.isVisible) {
+                Log.d(TAG, "Pre-draw Anchor view visible")
+                if (shouldShowTooltip(anchorView)) {
+                    if(popUpWindow.isShowing) {
+                        updateTooltipPosition(anchorView)
+                    } else {
+                        show(anchorView)
+                    }
+                } else {
+                    popUpWindow.dismiss()
+                }
             } else {
+                Log.d(TAG, "Pre-draw Anchor view is not visible")
                 popUpWindow.dismiss()
             }
+            true
         }
     }
 
@@ -361,7 +383,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         }
     }
 
-    private fun dismissTooltip() {
+    fun dismissTooltip() {
         if (popUpWindow.isShowing) {
             popUpWindow.dismiss()
         }
@@ -468,9 +490,10 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
          * Set tooltip dismiss listener
          * @param tooltipDismissListener the tooltip dismiss listener
          */
-        fun setTooltipDismissListener(tooltipDismissListener: TooltipDismissListener): TooltipBuilder = this.apply {
-            this.tooltipDismissListener = tooltipDismissListener
-        }
+        fun setTooltipDismissListener(tooltipDismissListener: TooltipDismissListener): TooltipBuilder =
+            this.apply {
+                this.tooltipDismissListener = tooltipDismissListener
+            }
 
         /**
          * Build tooltip view
@@ -484,6 +507,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
 
     interface TooltipDismissListener {
         fun onTooltipDismissed()
+
         companion object {
             inline operator fun invoke(crossinline block: () -> Unit) =
                 object : TooltipDismissListener {

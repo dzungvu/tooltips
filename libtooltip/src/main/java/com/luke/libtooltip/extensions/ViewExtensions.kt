@@ -103,5 +103,3 @@ fun View.displayRectWithoutDecorView(): Rect {
         )
     } ?: return Rect(0, 0, screenWidth, screenHeight)
 }
-
-
