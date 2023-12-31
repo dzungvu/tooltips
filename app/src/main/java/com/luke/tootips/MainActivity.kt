@@ -6,8 +6,11 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.luke.libtooltip.TooltipView
 import com.luke.libtooltip.extensions.showTooltip
+import com.luke.libtooltip.extensions.showTooltipAsync
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,6 +30,7 @@ class MainActivity : AppCompatActivity() {
         val tooltipBuyPackageView = buildTooltipView("It is a long established fact")
         val tooltipSportInteractive = buildTooltipView("Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin ant from 45 BC, making it over 2000 years old")
         val tooltipSetting = buildTooltipView("Where can I get some?", TooltipView.TooltipPosition.TOP)
+        val tooltipHello = buildTooltipView("Where to hello?", TooltipView.TooltipPosition.TOP)
 //        val tooltipSetting = buildTooltipView("Text content")
 
         val tvHello = findViewById<TextView>(R.id.tv_hello)
@@ -36,6 +40,12 @@ class MainActivity : AppCompatActivity() {
         btnBuyPackage.showTooltip(tooltipBuyPackageView)
         btnSportInteractive.showTooltip(tooltipSportInteractive)
         btnSetting.showTooltip(tooltipSetting)
+
+        btnBuyPackage.setOnClickListener {
+            lifecycleScope.launch {
+                tvHello.showTooltipAsync(tooltipHello)
+            }
+        }
 
         btnSportInteractive.setOnClickListener {
             showDefaultAlertDialog()

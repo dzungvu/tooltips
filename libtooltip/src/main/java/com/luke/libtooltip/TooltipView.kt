@@ -295,39 +295,42 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             TAG,
             " prepareBeforeShow margin left: ${anchorRect.left - savedPositionToShow.x}"
         )
-        var marginRight = 0
+        val constrainSet = ConstraintSet()
+        constrainSet.clone(tooltipContainerView as ConstraintLayout)
 
-        val margin = if (savedPositionToShow.x + tooltipViewMeasureWidth > getDisplayWidth()) {
+        if (savedPositionToShow.x + tooltipViewMeasureWidth > getDisplayWidth()) {
             val newPosition = getDisplayWidth() - tooltipViewMeasureWidth
             if(newPosition == 0) {
-                val constrainSet = ConstraintSet()
-                constrainSet.clone(tooltipContainerView as ConstraintLayout)
                 constrainSet.clear(R.id.iv_tooltip_arrow, ConstraintSet.START)
                 constrainSet.connect(R.id.iv_tooltip_arrow, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-                marginRight = getDisplayWidth() - anchorRect.centerX() - (tooltipArrowViewWidth / 2)
-                constrainSet.setMargin(R.id.iv_tooltip_arrow, ConstraintSet.END, marginRight)
-                constrainSet.applyTo(tooltipContainerView)
-                0
+                constrainSet.setMargin(
+                    R.id.iv_tooltip_arrow,
+                    ConstraintSet.END,
+                    getDisplayWidth() - anchorRect.centerX() - (tooltipArrowViewWidth / 2)
+                )
             } else {
-                anchorRect.centerX() - newPosition - (tooltipArrowViewWidth / 2)
+                constrainSet.setMargin(
+                    R.id.iv_tooltip_arrow,
+                    ConstraintSet.START,
+                    anchorRect.centerX() - newPosition - (tooltipArrowViewWidth / 2)
+                )
             }
 
         } else if (savedPositionToShow.x < 0) {
-            anchorRect.centerX() - (tooltipArrowViewWidth / 2)
+            constrainSet.setMargin(
+                R.id.iv_tooltip_arrow,
+                ConstraintSet.START,
+                anchorRect.centerX() - (tooltipArrowViewWidth / 2)
+            )
         } else {
-            anchorRect.centerX() - savedPositionToShow.x - (tooltipArrowViewWidth / 2)
+            constrainSet.setMargin(
+                R.id.iv_tooltip_arrow,
+                ConstraintSet.START,
+                anchorRect.centerX() - savedPositionToShow.x - (tooltipArrowViewWidth / 2)
+            )
         }
-
-        val layoutParams = tooltipArrowView.layoutParams as ViewGroup.MarginLayoutParams
-        layoutParams.setMargins(
-            margin,
-            0,
-            marginRight,
-            0
-        )
-
         // Apply the updated LayoutParams
-        tooltipArrowView.layoutParams = layoutParams
+        constrainSet.applyTo(tooltipContainerView)
     }
 
     internal suspend fun showAsync(anchorView: View) {
@@ -399,11 +402,22 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         }
     }
 
-    fun dismissTooltip() {
+    internal fun removeOnPreDrawListener(anchorView: View) {
+        try {
+            onPreDrawListener?.let {
+                anchorView.viewTreeObserver.removeOnPreDrawListener(it)
+            }
+        } catch (e: IllegalStateException) {
+            e.printStackTrace()
+        }
+    }
+
+    internal fun dismissTooltip() {
         if (popUpWindow.isShowing) {
             popUpWindow.dismiss()
         }
         builder.tooltipDismissListener?.onTooltipDismissed()
+        onPreDrawListener = null
         isDismissed = true
     }
 

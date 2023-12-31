@@ -17,6 +17,11 @@ fun View.showTooltip(tooltipView: TooltipView) {
     }
 }
 
+fun View.dismissTooltip(tooltipView: TooltipView) {
+    tooltipView.dismissTooltip()
+    tooltipView.removeOnPreDrawListener(this)
+}
+
 suspend fun View.showTooltipAsync(tooltipView: TooltipView) {
     tooltipView.showAsync(this)
 }
