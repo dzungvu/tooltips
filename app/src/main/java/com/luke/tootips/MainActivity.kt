@@ -64,8 +64,8 @@ class MainActivity : AppCompatActivity() {
         return TooltipView.TooltipBuilder()
             .setContent(content)
             .setAnchorPosition(tooltipPosition)
-//            .setContentLayoutId(R.layout.custom_tooltip_content)
-//            .setArrowResId(R.drawable.arrow)
+            .setContentLayoutId(R.layout.custom_tooltip_content)
+            .setArrowResId(R.drawable.arrow)
             .setTooltipDismissListener(TooltipView.TooltipDismissListener {
                 Toast.makeText(this, "Tooltip dismissed", Toast.LENGTH_SHORT).show()
             })
