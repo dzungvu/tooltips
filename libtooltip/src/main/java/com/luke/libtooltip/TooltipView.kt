@@ -12,8 +12,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.MeasureSpec
-import android.view.ViewGroup
-import android.view.ViewTreeObserver
+import android.view.ViewTreeObserver.OnPreDrawListener
 import android.widget.FrameLayout
 import android.widget.FrameLayout.LayoutParams
 import android.widget.ImageView
@@ -48,16 +47,42 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
 
     private var isDismissed: Boolean = false
     private val popUpWindow: PopupWindow
+
+    //The wrapper view of tooltip
     private val tooltipContainerView: View
+
+    /**
+     * The content view of tooltip (Custom layout contains TextView with id is tv_tooltip_content)
+     * or the default layout will be used
+     * @see [TooltipBuilder.setContentLayoutId]
+     */
     private val tooltipContentView: View
+
+    /**
+     * The textview to show tooltip content
+     */
     private val tooltipTextView: TextView?
+
+    /**
+     * The arrow view of tooltip. This will use default arrow or custom arrow by builder.arrowResId
+     * @see [TooltipBuilder.setArrowResId]
+     */
     private val tooltipArrowView: ImageView
 
+    /**
+     * The anchor view that tooltip will be shown
+     */
+    private var savedAnchorView: View? = null
+
+    /**
+     * The width and height of tooltip view after measure
+     */
     private var tooltipViewMeasureWidth: Int = 0
     private var tooltipViewMeasureHeight: Int = 0
 
     private var savedPositionToShow: Point = Point(0, 0)
-    private var onPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
+
+    private var onPreDrawListener: OnPreDrawListener? = null
 
     private var decorViewRect: Rect = Rect(0, 0, 0, 0)
 
@@ -300,9 +325,14 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
 
         if (savedPositionToShow.x + tooltipViewMeasureWidth > getDisplayWidth()) {
             val newPosition = getDisplayWidth() - tooltipViewMeasureWidth
-            if(newPosition == 0) {
+            if (newPosition == 0) {
                 constrainSet.clear(R.id.iv_tooltip_arrow, ConstraintSet.START)
-                constrainSet.connect(R.id.iv_tooltip_arrow, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
+                constrainSet.connect(
+                    R.id.iv_tooltip_arrow,
+                    ConstraintSet.END,
+                    ConstraintSet.PARENT_ID,
+                    ConstraintSet.END
+                )
                 constrainSet.setMargin(
                     R.id.iv_tooltip_arrow,
                     ConstraintSet.END,
@@ -343,7 +373,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     }
 
     internal fun show(anchorView: View) {
-        if(!isDismissed || popUpWindow.isShowing) {
+        if (!isDismissed || popUpWindow.isShowing) {
             findPositionAndExecuteCallback(anchorView) { point ->
                 show(anchorView, point)
             }
@@ -355,6 +385,7 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             Log.d(TAG, "Tooltip is dismissed")
             return
         } else {
+            this.savedAnchorView = anchorView
             prepareBeforeShow(anchorView)
             Log.d(TAG, "Point to show: $point")
             initVisibleListenerForAnchor(anchorView)
@@ -365,31 +396,34 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
     }
 
     private fun initVisibleListenerForAnchor(anchorView: View) {
-        if(onPreDrawListener != null) {
+        if (onPreDrawListener != null) {
             try {
                 anchorView.viewTreeObserver.removeOnPreDrawListener(onPreDrawListener)
             } catch (e: IllegalStateException) {
                 e.printStackTrace()
             }
         }
-        anchorView.viewTreeObserver.addOnPreDrawListener {
-            if (anchorView.isVisible) {
-                Log.d(TAG, "Pre-draw Anchor view visible")
-                if (shouldShowTooltip(anchorView)) {
-                    if(popUpWindow.isShowing) {
-                        updateTooltipPosition(anchorView)
+        onPreDrawListener = object : OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                if (anchorView.isVisible) {
+                    Log.d(TAG, "Pre-draw Anchor view visible")
+                    if (shouldShowTooltip(anchorView)) {
+                        if (popUpWindow.isShowing) {
+                            updateTooltipPosition(anchorView)
+                        } else {
+                            show(anchorView)
+                        }
                     } else {
-                        show(anchorView)
+                        popUpWindow.dismiss()
                     }
                 } else {
+                    Log.d(TAG, "Pre-draw Anchor view is not visible")
                     popUpWindow.dismiss()
                 }
-            } else {
-                Log.d(TAG, "Pre-draw Anchor view is not visible")
-                popUpWindow.dismiss()
+                return true
             }
-            true
         }
+        anchorView.viewTreeObserver.addOnPreDrawListener(onPreDrawListener)
     }
 
     private fun updateTooltipPosition(anchorView: View) {
@@ -402,22 +436,25 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
         }
     }
 
-    internal fun removeOnPreDrawListener(anchorView: View) {
-        try {
-            onPreDrawListener?.let {
-                anchorView.viewTreeObserver.removeOnPreDrawListener(it)
-            }
-        } catch (e: IllegalStateException) {
-            e.printStackTrace()
-        }
-    }
 
     internal fun dismissTooltip() {
         if (popUpWindow.isShowing) {
             popUpWindow.dismiss()
         }
         builder.tooltipDismissListener?.onTooltipDismissed()
+
+        //remove pre-draw listener
+        try {
+            onPreDrawListener?.let {
+                savedAnchorView?.viewTreeObserver?.removeOnPreDrawListener(it)
+            }
+        } catch (e: IllegalStateException) {
+            e.printStackTrace()
+        }
         onPreDrawListener = null
+        savedAnchorView = null
+
+        //mark tooltip is dismissed
         isDismissed = true
     }
 
@@ -463,6 +500,8 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
          * Set custom layout for tooltip
          * @param layoutId the layout id
          * @note: the layout must have TextView with id is tv_tooltip_content
+         * If this method is not called, the default layout will be used
+         * @see R.layout.tooltip_content
          */
         fun setContentLayoutId(@LayoutRes layoutId: Int) = this.apply {
             this.contentLayoutId = layoutId
@@ -542,6 +581,17 @@ class TooltipView(private val context: Context, private val builder: TooltipBuil
             inline operator fun invoke(crossinline block: () -> Unit) =
                 object : TooltipDismissListener {
                     override fun onTooltipDismissed() = block()
+                }
+        }
+    }
+
+    interface TooltipShowListener {
+        fun onTooltipShown()
+
+        companion object {
+            inline operator fun invoke(crossinline block: () -> Unit) =
+                object : TooltipShowListener {
+                    override fun onTooltipShown() = block()
                 }
         }
     }

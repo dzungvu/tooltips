@@ -36,10 +36,10 @@ class MainActivity : AppCompatActivity() {
         val tvHello = findViewById<TextView>(R.id.tv_hello)
 
 
-        btnClick.showTooltip(tooltipView)
-        btnBuyPackage.showTooltip(tooltipBuyPackageView)
+//        btnClick.showTooltip(tooltipView)
+//        btnBuyPackage.showTooltip(tooltipBuyPackageView)
         btnSportInteractive.showTooltip(tooltipSportInteractive)
-        btnSetting.showTooltip(tooltipSetting)
+//        btnSetting.showTooltip(tooltipSetting)
 
         btnBuyPackage.setOnClickListener {
             lifecycleScope.launch {
