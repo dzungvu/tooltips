@@ -31,6 +31,8 @@ class MainActivity : AppCompatActivity() {
         val tooltipSportInteractive = buildTooltipView("Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin ant from 45 BC, making it over 2000 years old")
         val tooltipSetting = buildTooltipView("Where can I get some?", TooltipView.TooltipPosition.TOP)
         val tooltipHello = buildTooltipView("Where to hello?", TooltipView.TooltipPosition.TOP)
+
+
 //        val tooltipSetting = buildTooltipView("Text content")
 
         val tvHello = findViewById<TextView>(R.id.tv_hello)
